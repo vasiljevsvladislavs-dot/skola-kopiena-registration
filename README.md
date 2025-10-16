@@ -26,3 +26,4 @@
 - Forma: `app/page.tsx`
 - API (e‑pasti + Sheets): `app/api/register/route.ts`
 - LV e‑pasta šabloni: `lib/email-lv.ts`
+
