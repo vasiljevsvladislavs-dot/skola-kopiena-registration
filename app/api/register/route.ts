@@ -4,7 +4,7 @@ export const dynamic = "force-dynamic";
 
 import { z } from "zod";
 import { Resend } from "resend";
-
+import { confirmationHtmlLV, adminHtmlLV } from "../../../lib/email-lv";
 import { google } from "googleapis";
 
 const schema = z.object({
