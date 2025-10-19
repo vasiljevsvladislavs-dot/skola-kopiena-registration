@@ -77,19 +77,29 @@ export async function POST(req: NextRequest) {
 
     try { await appendToSheet(p); } catch (e) { console.error("Sheets error", e); }
 
-    await resend.emails.send({
-      from: `Reģistrācija <${FROM}>`,
-      to: p.email,
-      subject: `Reģistrācija apstiprināta — ${EVENT_NAME}`,
-      html: confirmationHtmlLV({ name: p.fullName, eventName: EVENT_NAME }),
-    });
+    // 1) письмо участнику (автоответ)
+const r1 = await resend.emails.send({
+  from: `Reģistrācija <${FROM}>`,                  // "Reģistrācija <info@rudenskonference.lv>"
+  to: [p.email],                                   // массив надёжнее
+  subject: `Reģistrācija apstiprināta — ${EVENT_NAME}`,
+  html: confirmationHtmlLV({ name: p.fullName, eventName: EVENT_NAME }),
+  text: `Sveiki, ${p.fullName}!\nPaldies, ka reģistrējāties ${EVENT_NAME}.\n` +
+        `Ja ir jautājumi, rakstiet: info@rudenskonference.lv\nrudenskonference.lv`,
+  reply_to: ADMIN_TO,                              // ответ участника попадёт организатору
+});
 
-    await resend.emails.send({
-      from: `Reģistrācija <${FROM}>`,
-      to: ADMIN_TO,
-      subject: `Jauna reģistrācija — ${p.fullName}`,
-      html: adminHtmlLV(p),
-    });
+// 2) письмо организатору (уведомление)
+const r2 = await resend.emails.send({
+  from: `Reģistrācija <${FROM}>`,
+  to: [ADMIN_TO],
+  subject: `Jauna reģistrācija — ${p.fullName}`,
+  html: adminHtmlLV(p),
+  text: `Jauna reģistrācija:\nVārds: ${p.fullName}\nE-pasts: ${p.email}`,
+  headers: { "Reply-To": p.email },                // удобно сразу ответить участнику
+});
+
+// временно логируем, чтобы проверить, что Resend принял письма
+console.log("Resend IDs:", { participant: (r1 as any)?.id, admin: (r2 as any)?.id });
 
     return NextResponse.json({ ok: true });
   } catch (e: any) {
