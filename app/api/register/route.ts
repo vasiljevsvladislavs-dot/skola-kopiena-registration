@@ -81,14 +81,14 @@ export async function POST(req: NextRequest) {
       from: `Reģistrācija <${FROM}>`,
       to: p.email,
       subject: `Reģistrācija apstiprināta — ${EVENT_NAME}`,
-      html: confirmationHtmlLV({ name: p.name, eventName: EVENT_NAME }),
+      +      html: confirmationHtmlLV({ name: p.fullName, eventName: EVENT_NAME }),
     });
 
     await resend.emails.send({
       from: `Reģistrācija <${FROM}>`,
       to: ADMIN_TO,
       subject: `Jauna reģistrācija — ${p.fullName}`,
-      html: adminHtmlLV(p, EVENT_NAME),
+      html: adminHtmlLV(p),
     });
 
     return NextResponse.json({ ok: true });
