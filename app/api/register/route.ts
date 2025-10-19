@@ -85,7 +85,7 @@ const r1 = await resend.emails.send({
   html: confirmationHtmlLV({ name: p.fullName, eventName: EVENT_NAME }),
   text: `Sveiki, ${p.fullName}!\nPaldies, ka reģistrējāties ${EVENT_NAME}.\n` +
         `Ja ir jautājumi, rakstiet: info@rudenskonference.lv\nrudenskonference.lv`,
-  reply_to: ADMIN_TO,                              // ответ участника попадёт организатору
+  replyTo: ADMIN_TO,                              // ответ участника попадёт организатору
 });
 
 // 2) письмо организатору (уведомление)
@@ -95,7 +95,7 @@ const r2 = await resend.emails.send({
   subject: `Jauna reģistrācija — ${p.fullName}`,
   html: adminHtmlLV(p),
   text: `Jauna reģistrācija:\nVārds: ${p.fullName}\nE-pasts: ${p.email}`,
-  headers: { "Reply-To": p.email },                // удобно сразу ответить участнику
+  replyTo: p.email,                // удобно сразу ответить участнику
 });
 
 // временно логируем, чтобы проверить, что Resend принял письма
