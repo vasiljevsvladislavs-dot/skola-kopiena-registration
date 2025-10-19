@@ -81,7 +81,7 @@ export async function POST(req: NextRequest) {
       from: `Reģistrācija <${FROM}>`,
       to: p.email,
       subject: `Reģistrācija apstiprināta — ${EVENT_NAME}`,
-      html: confirmationHtmlLV(p, EVENT_NAME),
+      html: confirmationHtmlLV({ name: p.name, eventName: EVENT_NAME }),
     });
 
     await resend.emails.send({
