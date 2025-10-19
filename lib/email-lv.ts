@@ -40,8 +40,6 @@ export function confirmationHtmlLV(opts: { name?: string; eventName: string }) {
       table { border-collapse:collapse !important; }
       img { border:0; height:auto; line-height:100%; outline:none; text-decoration:none; max-width:100%; }
       .container { width:100%; max-width:600px; margin:0 auto; background:#ffffff; }
-      .header { padding:20px; text-align:center; }
-      .header img { max-width:150px; }
       .content { padding:20px; font-family:Arial,Helvetica,sans-serif; color:#333; line-height:1.5; }
       .button { display:inline-block; padding:12px 24px; margin:20px 0; font-size:16px; color:#fff;
                 background:#e67e22; text-decoration:none; border-radius:4px; }
@@ -58,9 +56,14 @@ export function confirmationHtmlLV(opts: { name?: string; eventName: string }) {
         <td align="center">
           <table class="container" role="presentation">
             <tr>
-              <td class="header">
-                <!-- Замените src на реальный путь к логотипу (например, /logo.png) -->
-                <img src="https://www.skola-kopiena.lv/images/Skola_kopiena_Logo_krasu2.svg" alt="Rudens Konference Logo" />
+              <td class="header" style="padding:16px 20px; background:#fafafa; text-align:center;">
+                <!-- SVG логотип с PNG fallback -->
+                <picture>
+                  <source srcset="https://www.skola-kopiena.lv/images/Skola_kopiena_Logo_krasu2.svg" type="image/svg+xml">
+                  <img src="https://www.skola-kopiena.lv/images/Skola_kopiena_Logo_krasu2.png"
+                       alt="Skola – kopienā"
+                       style="max-width:180px; height:auto;" />
+                </picture>
               </td>
             </tr>
             <tr>
