@@ -1,99 +1,44 @@
-import { NextRequest, NextResponse } from "next/server";
-export const runtime = "nodejs";
-export const dynamic = "force-dynamic";
+// app/api/register/route.ts
+import { Resend } from 'resend';
+import { adminNotifyHtml, participantConfirmHtml } from '@/lib/email-lv';
 
-import { z } from "zod";
-import { Resend } from "resend";
-import { confirmationHtmlLV, adminHtmlLV } from "../../../lib/email-lv";
-import { google } from "googleapis";
+const resend = new Resend(process.env.RESEND_API_KEY!);
 
-const schema = z.object({
-  fullName: z.string().min(2),
-  email: z.string().email(),
-  org: z.string().optional(),
-  role: z.string().optional(),
-  about: z.enum(["site","social","friends","other"]),
-  aboutOther: z.string().optional(),
-  notes: z.string().optional(),
-  consent: z.boolean(),
-});
-
-const resend = new Resend(process.env.RESEND_API_KEY);
-const FROM = process.env.MAIL_FROM || "noreply@onresend.com";
-const ADMIN_TO = process.env.MAIL_ADMIN_TO || "organizer@example.com";
-const EVENT_NAME = process.env.EVENT_NAME || "“Skola – kopienā” rudens konference “Vide. Skola. Kopiena.”";
-
-async function appendToSheet(payload: any) {
-  const SHEET_ID = process.env.GSHEET_ID;
-  const SA_JSON = process.env.GOOGLE_SERVICE_ACCOUNT_JSON;
-  if (!SHEET_ID || !SA_JSON) return;
-
-  const creds = JSON.parse(SA_JSON);
-  if (creds.private_key && typeof creds.private_key === "string") {
-    creds.private_key = creds.private_key.replace(/\\n/g, "\n");
-  }
-
-  const auth = new google.auth.JWT(
-    creds.client_email,
-    undefined,
-    creds.private_key,
-    ["https://www.googleapis.com/auth/spreadsheets"]
-  );
-  await auth.authorize();
-  const sheets = google.sheets({ version: "v4", auth });
-
-  const ts = new Date().toISOString();
-  const aboutMap: Record<string,string> = {
-    site: "Projekta “Skola – kopiena” mājaslapā",
-    social: "Projekta “Skola – kopiena” sociālajos tīklos (Facebook, Instagram)",
-    friends: "No kolēģiem / draugiem",
-    other: `Cits: ${payload.aboutOther || ""}`,
-  };
-
-  await sheets.spreadsheets.values.append({
-    spreadsheetId: SHEET_ID,
-    range: "A:G",
-    valueInputOption: "RAW",
-    requestBody: { values: [[
-      ts,
-      payload.fullName,
-      payload.email,
-      payload.org || "",
-      payload.role || "",
-      aboutMap[payload.about] || "",
-      payload.notes || "",
-    ]]},
-  });
-}
-
-export async function POST(req: NextRequest) {
+export async function POST(req: Request) {
   try {
-    const data = await req.json();
-    const parsed = schema.safeParse(data);
-    if (!parsed.success) {
-      return new NextResponse(parsed.error.errors[0]?.message || "Invalid payload", { status: 400 });
+    const form = await req.json(); // { name, email, ... }
+    const name  = form.name as string | undefined;
+    const email = form.email as string | undefined;
+
+    if (!email) {
+      return new Response(JSON.stringify({ error: 'email is required' }), { status: 400 });
     }
-    const p = parsed.data;
 
-    try { await appendToSheet(p); } catch (e) { console.error("Sheets error", e); }
+    const FROM = process.env.MAIL_FROM || 'Rudens konference <info@rudenskonference.lv>';
+    const ADMIN = process.env.MAIL_ADMIN_TO || 'info@rudenskonference.lv';
+    const EVENT = process.env.EVENT_NAME || 'Rudens konference 2025';
 
+    // 1) Письмо организатору
     await resend.emails.send({
-      from: `Reģistrācija <${FROM}>`,
-      to: p.email,
-      subject: `Reģistrācija apstiprināta — ${EVENT_NAME}`,
-      html: confirmationHtmlLV(p, EVENT_NAME),
+      from: FROM,
+      to: [ADMIN],
+      subject: `Jauna reģistrācija — ${EVENT}`,
+      html: adminNotifyHtml(form),
+      headers: { 'Reply-To': email }
     });
 
+    // 2) Автоответ участнику
     await resend.emails.send({
-      from: `Reģistrācija <${FROM}>`,
-      to: ADMIN_TO,
-      subject: `Jauna reģistrācija — ${p.fullName}`,
-      html: adminHtmlLV(p, EVENT_NAME),
+      from: FROM,
+      to: [email],
+      subject: `Paldies par reģistrāciju — ${EVENT}`,
+      reply_to: ADMIN,
+      html: participantConfirmHtml({ name, eventName: EVENT })
     });
 
-    return NextResponse.json({ ok: true });
+    return new Response(JSON.stringify({ ok: true }), { status: 200 });
   } catch (e: any) {
     console.error(e);
-    return new NextResponse(e?.message || "Server error", { status: 500 });
+    return new Response(JSON.stringify({ error: e?.message ?? 'Server error' }), { status: 500 });
   }
 }
