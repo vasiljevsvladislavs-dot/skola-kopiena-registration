@@ -19,8 +19,8 @@ const schema = z.object({
 });
 
 const resend = new Resend(process.env.RESEND_API_KEY);
-const FROM = process.env.MAIL_FROM || "noreply@onresend.com";
-const ADMIN_TO = process.env.MAIL_ADMIN_TO || "organizer@example.com";
+const FROM = process.env.MAIL_FROM || "info@rudenskonference.lv";
+const ADMIN_TO = process.env.MAIL_ADMIN_TO || "info@rudenskonference.lv";
 const EVENT_NAME = process.env.EVENT_NAME || "“Skola – kopienā” rudens konference “Vide. Skola. Kopiena.”";
 
 async function appendToSheet(payload: any) {
