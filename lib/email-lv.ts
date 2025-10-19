@@ -1,4 +1,28 @@
-/** Автоответ участнику — фирменный фиолетовый стиль (skola-kopiena.lv) */
+// lib/email-lv.ts
+
+/** Письмо администратору: табличкой выводим все поля формы */
+export function adminHtmlLV(form: Record<string, unknown>) {
+  const rows = Object.entries(form).map(
+    ([k, v]) =>
+      `<tr>
+        <td style="padding:6px 10px;border-bottom:1px solid #eee;"><b>${escapeHtml(k)}</b></td>
+        <td style="padding:6px 10px;border-bottom:1px solid #eee;">${escapeHtml(String(v ?? "—"))}</td>
+      </tr>`
+  );
+
+  return `
+  <div style="font-family:Arial,Helvetica,sans-serif;color:#222;">
+    <h3 style="margin:0 0 12px 0;">Jauna reģistrācija</h3>
+    <table cellpadding="0" cellspacing="0" style="border-collapse:collapse;min-width:320px;">
+      ${rows.join("")}
+    </table>
+    <p style="font-size:12px;color:#777;margin-top:12px;">
+      Laiks: ${new Date().toLocaleString("lv-LV")}
+    </p>
+  </div>`;
+}
+
+/** Автоответ участнику — фирменный фиолетовый стиль Skola – kopienā (без логотипа) */
 export function confirmationHtmlLV(opts: { name?: string; eventName: string }) {
   const { name, eventName } = opts;
 
@@ -66,7 +90,7 @@ export function confirmationHtmlLV(opts: { name?: string; eventName: string }) {
                   <strong>${escapeHtml(eventName)}</strong>.
                 </p>
                 <p>
-                  Mēs esam saņēmuši jūsu pieteikumu un drīzumā ar jums sazināsimies ar papildinformāciju.
+                  Mēs esam saņēmuši jūsu pieteikumu.
                 </p>
                 <p>
                   Jautājumu gadījumā rakstiet uz
