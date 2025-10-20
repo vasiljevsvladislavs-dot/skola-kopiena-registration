@@ -7,6 +7,7 @@ import { Resend } from "resend";
 import { confirmationHtmlLV, adminHtmlLV } from "../../../lib/email-lv";
 import { google } from "googleapis";
 
+// === Валидация входящих данных ===
 const schema = z.object({
   fullName: z.string().min(2),
   email: z.string().email(),
@@ -18,11 +19,18 @@ const schema = z.object({
   consent: z.boolean(),
 });
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+// === Env ===
+const resendApiKey = process.env.RESEND_API_KEY;
 const FROM = process.env.MAIL_FROM || "info@rudenskonference.lv";
 const ADMIN_TO = process.env.MAIL_ADMIN_TO || "info@rudenskonference.lv";
-const EVENT_NAME = process.env.EVENT_NAME || "“Skola – kopienā” rudens konference “Vide. Skola. Kopiena.”";
+const EVENT_NAME =
+  process.env.EVENT_NAME ||
+  "“Skola – kopienā” rudens konference “Vide. Skola. Kopiena.”";
 
+// === Клиент Resend ===
+const resend = new Resend(resendApiKey);
+
+// === Запись в Google Sheets (как было) ===
 async function appendToSheet(payload: any) {
   const SHEET_ID = process.env.GSHEET_ID;
   const SA_JSON = process.env.GOOGLE_SERVICE_ACCOUNT_JSON;
@@ -62,12 +70,19 @@ async function appendToSheet(payload: any) {
       payload.role || "",
       aboutMap[payload.about] || "",
       payload.notes || "",
-    ]]},
+    ]]}
   });
 }
 
 export async function POST(req: NextRequest) {
   try {
+    // Проверка ключа Resend: если нет — не пытаемся слать письма
+    if (!resendApiKey) {
+      console.error("RESEND_API_KEY is missing");
+      return new NextResponse("Email disabled: missing RESEND_API_KEY", { status: 503 });
+    }
+
+    // Чтение и валидация входа
     const data = await req.json();
     const parsed = schema.safeParse(data);
     if (!parsed.success) {
@@ -75,35 +90,50 @@ export async function POST(req: NextRequest) {
     }
     const p = parsed.data;
 
+    // Запись в Google Sheets — ошибки не ломают регистрацию
     try { await appendToSheet(p); } catch (e) { console.error("Sheets error", e); }
 
-    // 1) письмо участнику (автоответ)
-const r1 = await resend.emails.send({
-  from: `Reģistrācija <${FROM}>`,                  // "Reģistrācija <info@rudenskonference.lv>"
-  to: [p.email],                                   // массив надёжнее
-  subject: `Reģistrācija apstiprināta — ${EVENT_NAME}`,
-  html: confirmationHtmlLV({ name: p.fullName, eventName: EVENT_NAME }),
-  text: `Sveiki, ${p.fullName}!\nPaldies, ka reģistrējāties ${EVENT_NAME}.\n` +
-        `Ja ir jautājumi, rakstiet: info@rudenskonference.lv\nrudenskonference.lv`,
-  replyTo: ADMIN_TO,                              // ответ участника попадёт организатору
-});
+    // === Отправка двух писем (параллельно) ===
+    const participantEmail = resend.emails.send({
+      from: `Reģistrācija <${FROM}>`,
+      to: [p.email],
+      subject: `Reģistrācija apstiprināta — ${EVENT_NAME}`,
+      html: confirmationHtmlLV({ name: p.fullName, eventName: EVENT_NAME }),
+      text:
+        `Sveiki, ${p.fullName}!\n` +
+        `Paldies, ka reģistrējāties ${EVENT_NAME}.\n` +
+        `Ja ir jautājumi, rakstiet: ${ADMIN_TO}\n` +
+        `rudenskonference.lv`,
+      replyTo: ADMIN_TO,
+    });
 
-// 2) письмо организатору (уведомление)
-const r2 = await resend.emails.send({
-  from: `Reģistrācija <${FROM}>`,
-  to: [ADMIN_TO],
-  subject: `Jauna reģistrācija — ${p.fullName}`,
-  html: adminHtmlLV(p),
-  text: `Jauna reģistrācija:\nVārds: ${p.fullName}\nE-pasts: ${p.email}`,
-  replyTo: p.email,                // удобно сразу ответить участнику
-});
+    const adminEmail = resend.emails.send({
+      from: `Reģistrācija <${FROM}>`,
+      to: [ADMIN_TO],
+      subject: `Jauna reģistrācija — ${p.fullName}`,
+      html: adminHtmlLV(p),
+      text:
+        `Jauna reģistrācija:\n` +
+        `Vārds: ${p.fullName}\n` +
+        `E-pasts: ${p.email}`,
+      replyTo: p.email,
+    });
 
-// временно логируем, чтобы проверить, что Resend принял письма
-console.log("Resend IDs:", { participant: (r1 as any)?.id, admin: (r2 as any)?.id });
+    const [r1, r2] = await Promise.all([participantEmail, adminEmail]);
 
+    // === ЯВНА ПРОВЕРКА ОШИБОК RESEND ===
+    const e1 = (r1 as any)?.error;
+    const e2 = (r2 as any)?.error;
+    if (e1 || e2) {
+      console.error("RESEND_SEND_ERROR", { e1, e2 });
+      return NextResponse.json({ ok: false, e1, e2 }, { status: 502 });
+    }
+
+    console.log("Resend IDs:", { participant: (r1 as any)?.id, admin: (r2 as any)?.id });
     return NextResponse.json({ ok: true });
+
   } catch (e: any) {
-    console.error(e);
+    console.error("REGISTER_API_ERROR", e);
     return new NextResponse(e?.message || "Server error", { status: 500 });
   }
 }
