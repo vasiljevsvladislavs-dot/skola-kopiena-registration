@@ -6,7 +6,7 @@ import { google } from "googleapis";
 
 export const runtime = "nodejs";
 
-/* -------------------- Валидация входа -------------------- */
+/* -------------------- Валидация -------------------- */
 const schema = z.object({
   fullName: z.string().min(2),
   email: z.string().email(),
@@ -19,36 +19,34 @@ const schema = z.object({
 });
 
 /* -------------------- ENV -------------------- */
-/** Gmail SMTP (используем только его) */
 const SMTP_HOST = process.env.SMTP_HOST || "smtp.gmail.com";
 const SMTP_PORT = Number(process.env.SMTP_PORT || 465);
 const SMTP_USER = process.env.SMTP_USER || "rudenskonference@gmail.com";
-const SMTP_PASS = process.env.SMTP_PASS || "bzyolvcsguvhheel "; // 16-символьный App Password
 
-/** От кого и куда шлём */
 const FROM =
   process.env.MAIL_FROM || `Reģistrācija <rudenskonference@gmail.com>`;
 const ADMIN_TO =
   process.env.MAIL_ADMIN_TO || "rudenskonference@gmail.com";
 
-/** Текст мероприятия */
 const EVENT_NAME =
   process.env.EVENT_NAME ||
   "Skola – kopienā rudens konference “Vide. Skola. Kopiena.”";
 
-/** Google Sheets (опционально; можно оставить пустыми — тогда запись пропустится) */
-const GSHEET_ID = process.env.GSHEET_ID; // ID таблицы
-const SA_JSON_RAW = process.env.GOOGLE_SERVICE_ACCOUNT_JSON; // JSON сервис-аккаунта (одной строкой)
+const GSHEET_ID = process.env.GSHEET_ID;
+const SA_JSON_RAW = process.env.GOOGLE_SERVICE_ACCOUNT_JSON;
 
-/* -------------------- Транспорт (Gmail SMTP) -------------------- */
+/* -------------------- Транспорт -------------------- */
 const transporter = nodemailer.createTransport({
   host: SMTP_HOST,
   port: SMTP_PORT,
-  secure: SMTP_PORT === 465, // 465 = SSL, 587 = STARTTLS (для Gmail лучше 465)
-  auth: { user: SMTP_USER, pass: SMTP_PASS },
+  secure: SMTP_PORT === 465,
+  auth: {
+    user: SMTP_USER,
+    pass: process.env.SMTP_PASS, // 🔒 читается только из среды (не хранится в коде)
+  },
 });
 
-/* -------------------- Google Sheets (опционально) -------------------- */
+/* -------------------- Google Sheets -------------------- */
 async function appendToSheet(payload: any) {
   if (!GSHEET_ID || !SA_JSON_RAW) return;
 
@@ -92,13 +90,12 @@ async function appendToSheet(payload: any) {
   });
 }
 
-/* -------------------- Шаблоны писем -------------------- */
+/* -------------------- Email -------------------- */
 function confirmationSubjectLV() {
   return `Paldies par reģistrāciju — ${EVENT_NAME}`;
 }
 
 function confirmationTextLV(name: string) {
-  // ТОЛЬКО текст — чтобы гос-домены принимали надёжнее
   return [
     "Paldies par reģistrāciju!",
     `Sveiki, ${name}!`,
@@ -124,12 +121,11 @@ function adminTextLV(p: any) {
   ].join("\n");
 }
 
-/* -------------------- Проверка GET -------------------- */
+/* -------------------- Обработчики -------------------- */
 export async function GET() {
-  return NextResponse.json({ ok: true, endpoint: "/api/register", method: "POST" });
+  return NextResponse.json({ ok: true });
 }
 
-/* -------------------- Основной POST -------------------- */
 export async function POST(req: Request) {
   try {
     const data = await req.json();
@@ -140,40 +136,25 @@ export async function POST(req: Request) {
         { status: 400 }
       );
     }
-    const p = parsed.data;
 
-    // 0) Пишем в Google Sheets (не валим запрос при ошибке)
+    const p = parsed.data;
     try { await appendToSheet(p); } catch (e) { console.error("Sheets error:", e); }
 
-    // 1) Письмо участнику
-    let participantInfo: any = null;
-    try {
-      participantInfo = await transporter.sendMail({
-        from: FROM,                      // Gmail-адрес
-        to: p.email,                     // участнику
-        subject: confirmationSubjectLV(),
-        text: confirmationTextLV(p.fullName),
-        replyTo: "rudenskonference@gmail.com",
-      });
-      console.log("GMAIL_PARTICIPANT_MESSAGE_ID", participantInfo?.messageId);
-    } catch (e) {
-      console.error("GMAIL_PARTICIPANT_ERROR", e);
-    }
+    const participantInfo = await transporter.sendMail({
+      from: FROM,
+      to: p.email,
+      subject: confirmationSubjectLV(),
+      text: confirmationTextLV(p.fullName),
+      replyTo: "rudenskonference@gmail.com",
+    });
 
-    // 2) Письмо админу (на тот же Gmail)
-    let adminInfo: any = null;
-    try {
-      adminInfo = await transporter.sendMail({
-        from: FROM,
-        to: ADMIN_TO,                    // rudenskonference@gmail.com
-        subject: adminSubjectLV(p.fullName),
-        text: adminTextLV(p),
-        replyTo: "rudenskonference@gmail.com",
-      });
-      console.log("GMAIL_ADMIN_MESSAGE_ID", adminInfo?.messageId);
-    } catch (e) {
-      console.error("GMAIL_ADMIN_ERROR", e);
-    }
+    const adminInfo = await transporter.sendMail({
+      from: FROM,
+      to: ADMIN_TO,
+      subject: adminSubjectLV(p.fullName),
+      text: adminTextLV(p),
+      replyTo: "rudenskonference@gmail.com",
+    });
 
     return NextResponse.json({
       ok: true,
@@ -185,9 +166,6 @@ export async function POST(req: Request) {
     });
   } catch (e: any) {
     console.error("REGISTER_FATAL", e);
-    return NextResponse.json(
-      { ok: false, error: e?.message || "Server error" },
-      { status: 500 }
-    );
+    return NextResponse.json({ ok: false, error: e?.message || "Server error" }, { status: 500 });
   }
 }
