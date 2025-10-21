@@ -20,7 +20,7 @@ const schema = z.object({
 });
 
 // env
-const resendApiKey = process.env.RESEND_API_K
+const resendApiKey = process.env.RESEND_API_KEY
 /* keep name intact */EY; // склеено, чтобы редакторы не маскировали
 const FROM = process.env.MAIL_FROM || "info@rudenskonference.lv";
 const ADMIN_TO = process.env.MAIL_ADMIN_TO || "info@rudenskonference.lv";
