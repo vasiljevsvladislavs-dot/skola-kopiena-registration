@@ -4,65 +4,112 @@ import nodemailer from "nodemailer";
 
 export const runtime = "nodejs";
 
-// Валидация входных данных
+/** Валидация входных данных формы */
 const schema = z.object({
   fullName: z.string().min(2),
   email: z.string().email(),
   org: z.string().optional(),
   role: z.string().optional(),
-  about: z.enum(["site","social","friends","other"]),
+  about: z.enum(["site", "social", "friends", "other"]),
   aboutOther: z.string().optional(),
   notes: z.string().optional(),
   consent: z.boolean(),
 });
 
-// ENV
+/** ENV */
 const SES_HOST = process.env.SES_HOST || "email-smtp.us-east-1.amazonaws.com";
 const SES_PORT = Number(process.env.SES_PORT || 587);
-const SES_USER = process.env.SES_USER!;
-const SES_PASS = process.env.SES_PASS!;
+const SES_USER = process.env.SES_USER || "";
+const SES_PASS = process.env.SES_PASS || "";
+
 const FROM = process.env.MAIL_FROM || "noreply@rudenskonference.lv";
 const ADMIN_TO = process.env.MAIL_ADMIN_TO || "info@rudenskonference.lv";
 const EVENT_NAME =
   process.env.EVENT_NAME ||
-  "“Skola – kopienā” rudens konference “Vide. Skola. Kopiena.”";
+  "Skola – kopienā rudens konference “Vide. Skola. Kopiena.”";
 
-// SMTP транспорт Amazon SES
-function makeSesTransport() {
-  if (!SES_USER || !SES_PASS) throw new Error("SES SMTP creds missing");
-  return nodemailer.createTransport({
-    host: SES_HOST,
-    port: SES_PORT,
-    secure: false, // 587 = STARTTLS
-    auth: { user: SES_USER, pass: SES_PASS }
-  });
+/** Транспорт через Amazon SES (SMTP) */
+const transporter = nodemailer.createTransport({
+  host: SES_HOST,
+  port: SES_PORT,
+  secure: SES_PORT === 465, // 465 = SSL, 587 = STARTTLS
+  auth: {
+    user: SES_USER,
+    pass: SES_PASS,
+  },
+});
+
+/** -------- Email шаблоны (LV) -------- */
+function confirmationSubjectLV() {
+  return `Paldies par reģistrāciju — ${EVENT_NAME}`;
 }
 
-// Простые HTML шаблоны
-function confirmationHtml(name: string) {
-  return `<div style="font-family:system-ui,Arial">
-    <h2>Reģistrācija apstiprināta 🎉</h2>
-    <p>Sveiki, ${name}! Paldies par reģistrāciju: <b>${EVENT_NAME}</b>.</p>
-    <p>Ja ir jautājumi, rakstiet: ${ADMIN_TO}</p>
+function confirmationTextLV(name: string) {
+  // Текст, который вы попросили вернуть 1-в-1, с подстановками
+  return [
+    "Paldies par reģistrāciju!",
+    `\nSveiki, ${name}!`,
+    `\nPaldies, ka reģistrējāties ${EVENT_NAME}.`,
+    "\nMēs esam saņēmuši jūsu pieteikumu.",
+    `\nJautājumu gadījumā rakstiet uz ${ADMIN_TO} .`,
+  ].join("\n");
+}
+
+function confirmationHtmlLV(name: string) {
+  // Небольшая типографика + те же фразы
+  return `
+  <div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;line-height:1.5;color:#111">
+    <h2 style="margin:0 0 12px">Paldies par reģistrāciju!</h2>
+    <p style="margin:0 0 10px">Sveiki, ${name}!</p>
+    <p style="margin:0 0 10px">
+      Paldies, ka reģistrējāties <b>${EVENT_NAME}</b>.
+    </p>
+    <p style="margin:0 0 10px">Mēs esam saņēmuši jūsu pieteikumu.</p>
+    <p style="margin:0 0 10px">
+      Jautājumu gadījumā rakstiet uz <a href="mailto:${ADMIN_TO}">${ADMIN_TO}</a> .
+    </p>
   </div>`;
 }
-function adminHtml(p: any) {
-  return `<div style="font-family:system-ui,Arial">
-    <h3>Jauna reģistrācija</h3>
-    <p><b>Vārds:</b> ${p.fullName}</p>
-    <p><b>E-pasts:</b> ${p.email}</p>
-    <p><b>Organizācija:</b> ${p.org || ""}</p>
-    <p><b>Amats:</b> ${p.role || ""}</p>
-    <p><b>Kā uzzināja:</b> ${p.about}${p.about === "other" ? " — " + (p.aboutOther || "") : ""}</p>
-    <p><b>Piezīmes:</b> ${p.notes || ""}</p>
+
+function adminSubjectLV(name: string) {
+  return `Jauna reģistrācija — ${name}`;
+}
+
+function adminTextLV(payload: any) {
+  return [
+    "Jauna reģistrācija:",
+    `Vārds: ${payload.fullName}`,
+    `E-pasts: ${payload.email}`,
+    `Organizācija: ${payload.org || ""}`,
+    `Amats: ${payload.role || ""}`,
+    `Kā uzzināja: ${payload.about}${
+      payload.about === "other" ? " — " + (payload.aboutOther || "") : ""
+    }`,
+    `Piezīmes: ${payload.notes || ""}`,
+  ].join("\n");
+}
+
+function adminHtmlLV(payload: any) {
+  return `
+  <div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;line-height:1.5;color:#111">
+    <h3 style="margin:0 0 12px">Jauna reģistrācija</h3>
+    <p style="margin:0 0 6px"><b>Vārds:</b> ${payload.fullName}</p>
+    <p style="margin:0 0 6px"><b>E-pasts:</b> ${payload.email}</p>
+    <p style="margin:0 0 6px"><b>Organizācija:</b> ${payload.org || ""}</p>
+    <p style="margin:0 0 6px"><b>Amats:</b> ${payload.role || ""}</p>
+    <p style="margin:0 0 6px"><b>Kā uzzināja:</b> ${payload.about}${
+      payload.about === "other" ? " — " + (payload.aboutOther || "") : ""
+    }</p>
+    <p style="margin:0 0 6px"><b>Piezīmes:</b> ${payload.notes || ""}</p>
   </div>`;
 }
 
-// GET для понятного ответа в браузере
+/** Для быстрой проверки в браузере */
 export async function GET() {
-  return NextResponse.json({ ok: true, endpoint: "/api/register", use: "POST" });
+  return NextResponse.json({ ok: true, endpoint: "/api/register", method: "POST" });
 }
 
+/** Основной обработчик регистрации */
 export async function POST(req: Request) {
   try {
     const body = await req.json();
@@ -75,47 +122,45 @@ export async function POST(req: Request) {
     }
     const p = parsed.data;
 
-    const transport = makeSesTransport();
-
-    // 1) Участнику
-    let r1: any = null;
+    // 1) Письмо участнику
+    let participantInfo: any = null;
     try {
-      r1 = await transport.sendMail({
+      participantInfo = await transporter.sendMail({
         from: `Reģistrācija <${FROM}>`,
         to: p.email,
-        subject: `Reģistrācija apstiprināta — ${EVENT_NAME}`,
-        html: confirmationHtml(p.fullName),
-        text: `Sveiki, ${p.fullName}! Paldies par reģistrāciju: ${EVENT_NAME}. Ja ir jautājumi, rakstiet: ${ADMIN_TO}`,
-        replyTo: ADMIN_TO
+        subject: confirmationSubjectLV(),
+        text: confirmationTextLV(p.fullName),
+        html: confirmationHtmlLV(p.fullName),
+        replyTo: ADMIN_TO,
       });
-      console.log("SES_PARTICIPANT_MESSAGE_ID", r1?.messageId);
-    } catch (e) {
-      console.error("SES_PARTICIPANT_ERROR", e);
+      console.log("SES_PARTICIPANT_MESSAGE_ID", participantInfo?.messageId);
+    } catch (err) {
+      console.error("SES_PARTICIPANT_ERROR", err);
     }
 
-    // 2) Админу
-    let r2: any = null;
+    // 2) Письмо администратору
+    let adminInfo: any = null;
     try {
-      r2 = await transport.sendMail({
+      adminInfo = await transporter.sendMail({
         from: `Reģistrācija <${FROM}>`,
         to: ADMIN_TO,
-        subject: `Jauna reģistrācija — ${p.fullName}`,
-        html: adminHtml(p),
-        text: `Jauna reģistrācija: ${p.fullName}, ${p.email}`,
-        replyTo: p.email
+        subject: adminSubjectLV(p.fullName),
+        text: adminTextLV(p),
+        html: adminHtmlLV(p),
+        replyTo: p.email,
       });
-      console.log("SES_ADMIN_MESSAGE_ID", r2?.messageId);
-    } catch (e) {
-      console.error("SES_ADMIN_ERROR", e);
+      console.log("SES_ADMIN_MESSAGE_ID", adminInfo?.messageId);
+    } catch (err) {
+      console.error("SES_ADMIN_ERROR", err);
     }
 
     return NextResponse.json({
       ok: true,
       mail: {
-        participantMessageId: r1?.messageId || null,
-        adminMessageId: r2?.messageId || null,
-        provider: "ses-smtp"
-      }
+        participantMessageId: participantInfo?.messageId || null,
+        adminMessageId: adminInfo?.messageId || null,
+        provider: "ses-smtp",
+      },
     });
   } catch (e: any) {
     console.error("REGISTER_FATAL", e);
