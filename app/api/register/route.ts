@@ -6,7 +6,7 @@ import { google } from "googleapis";
 
 export const runtime = "nodejs";
 
-/* -------------------- Валидация -------------------- */
+/* -------------------- Валидация входа -------------------- */
 const schema = z.object({
   fullName: z.string().min(2),
   email: z.string().email(),
@@ -19,33 +19,39 @@ const schema = z.object({
 });
 
 /* -------------------- ENV -------------------- */
-const SES_HOST = process.env.SES_HOST || "email-smtp.us-east-1.amazonaws.com";
-const SES_PORT = Number(process.env.SES_PORT || 587);
-const SES_USER = process.env.SES_USER || "";
-const SES_PASS = process.env.SES_PASS || "";
+/** Gmail SMTP (используем только его) */
+const SMTP_HOST = process.env.SMTP_HOST || "smtp.gmail.com";
+const SMTP_PORT = Number(process.env.SMTP_PORT || 465);
+const SMTP_USER = process.env.SMTP_USER || "rudenskonference@gmail.com";
+const SMTP_PASS = process.env.SMTP_PASS || "bzyolvcsguvhheel "; // 16-символьный App Password
 
-const FROM = process.env.MAIL_FROM || "noreply@rudenskonference.lv";
-const ADMIN_TO = process.env.MAIL_ADMIN_TO || "info@rudenskonference.lv";
+/** От кого и куда шлём */
+const FROM =
+  process.env.MAIL_FROM || `Reģistrācija <rudenskonference@gmail.com>`;
+const ADMIN_TO =
+  process.env.MAIL_ADMIN_TO || "rudenskonference@gmail.com";
+
+/** Текст мероприятия */
 const EVENT_NAME =
   process.env.EVENT_NAME ||
   "Skola – kopienā rudens konference “Vide. Skola. Kopiena.”";
 
+/** Google Sheets (опционально; можно оставить пустыми — тогда запись пропустится) */
 const GSHEET_ID = process.env.GSHEET_ID; // ID таблицы
-const SA_JSON_RAW = process.env.GOOGLE_SERVICE_ACCOUNT_JSON; // строка JSON ключа
+const SA_JSON_RAW = process.env.GOOGLE_SERVICE_ACCOUNT_JSON; // JSON сервис-аккаунта (одной строкой)
 
-/* -------------------- SMTP (SES) -------------------- */
+/* -------------------- Транспорт (Gmail SMTP) -------------------- */
 const transporter = nodemailer.createTransport({
-  host: SES_HOST,
-  port: SES_PORT,
-  secure: SES_PORT === 465, // 465 = SSL, 587 = STARTTLS
-  auth: { user: SES_USER, pass: SES_PASS },
+  host: SMTP_HOST,
+  port: SMTP_PORT,
+  secure: SMTP_PORT === 465, // 465 = SSL, 587 = STARTTLS (для Gmail лучше 465)
+  auth: { user: SMTP_USER, pass: SMTP_PASS },
 });
 
-/* -------------------- Google Sheets -------------------- */
+/* -------------------- Google Sheets (опционально) -------------------- */
 async function appendToSheet(payload: any) {
   if (!GSHEET_ID || !SA_JSON_RAW) return;
 
-  // ключ приходит как строка JSON; \n в приватном ключе нужно "разэкранировать"
   const creds = JSON.parse(SA_JSON_RAW);
   if (typeof creds?.private_key === "string") {
     creds.private_key = creds.private_key.replace(/\\n/g, "\n");
@@ -70,7 +76,7 @@ async function appendToSheet(payload: any) {
 
   await sheets.spreadsheets.values.append({
     spreadsheetId: GSHEET_ID,
-    range: "A:G", // первая свободная строка, колонки A..G
+    range: "A:G",
     valueInputOption: "RAW",
     requestBody: {
       values: [[
@@ -86,30 +92,20 @@ async function appendToSheet(payload: any) {
   });
 }
 
-/* -------------------- Email шаблоны (LV) -------------------- */
+/* -------------------- Шаблоны писем -------------------- */
 function confirmationSubjectLV() {
   return `Paldies par reģistrāciju — ${EVENT_NAME}`;
 }
 
 function confirmationTextLV(name: string) {
+  // ТОЛЬКО текст — чтобы гос-домены принимали надёжнее
   return [
     "Paldies par reģistrāciju!",
-    `\nSveiki, ${name}!`,
-    `\nPaldies, ka reģistrējāties ${EVENT_NAME}.`,
-    "\nMēs esam saņēmuši jūsu pieteikumu.",
-    `\nJautājumu gadījumā rakstiet uz ${ADMIN_TO} .`,
-  ].join("\n");
-}
-
-function confirmationHtmlLV(name: string) {
-  return `
-  <div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;line-height:1.5;color:#111">
-    <h2 style="margin:0 0 12px">Paldies par reģistrāciju!</h2>
-    <p style="margin:0 0 10px">Sveiki, ${name}!</p>
-    <p style="margin:0 0 10px">Paldies, ka reģistrējāties <b>${EVENT_NAME}</b>.</p>
-    <p style="margin:0 0 10px">Mēs esam saņēmuši jūsu pieteikumu.</p>
-    <p style="margin:0 0 10px">Jautājumu gadījumā rakstiet uz <a href="mailto:${ADMIN_TO}">${ADMIN_TO}</a> .</p>
-  </div>`;
+    `Sveiki, ${name}!`,
+    `Paldies, ka reģistrējāties ${EVENT_NAME}.`,
+    "Mēs esam saņēmuši jūsu pieteikumu.",
+    `Jautājumu gadījumā rakstiet uz rudenskonference@gmail.com`,
+  ].join("\n\n");
 }
 
 function adminSubjectLV(name: string) {
@@ -128,25 +124,12 @@ function adminTextLV(p: any) {
   ].join("\n");
 }
 
-function adminHtmlLV(p: any) {
-  return `
-  <div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;line-height:1.5;color:#111">
-    <h3 style="margin:0 0 12px">Jauna reģistrācija</h3>
-    <p style="margin:0 0 6px"><b>Vārds:</b> ${p.fullName}</p>
-    <p style="margin:0 0 6px"><b>E-pasts:</b> ${p.email}</p>
-    <p style="margin:0 0 6px"><b>Organizācija:</b> ${p.org || ""}</p>
-    <p style="margin:0 0 6px"><b>Amats:</b> ${p.role || ""}</p>
-    <p style="margin:0 0 6px"><b>Kā uzzināja:</b> ${p.about}${p.about === "other" ? " — " + (p.aboutOther || "") : ""}</p>
-    <p style="margin:0 0 6px"><b>Piezīmes:</b> ${p.notes || ""}</p>
-  </div>`;
-}
-
-/* -------------------- Для проверки -------------------- */
+/* -------------------- Проверка GET -------------------- */
 export async function GET() {
   return NextResponse.json({ ok: true, endpoint: "/api/register", method: "POST" });
 }
 
-/* -------------------- Основной обработчик -------------------- */
+/* -------------------- Основной POST -------------------- */
 export async function POST(req: Request) {
   try {
     const data = await req.json();
@@ -159,39 +142,37 @@ export async function POST(req: Request) {
     }
     const p = parsed.data;
 
-    // 0) Пишем в Google Sheets (не валим запрос из-за этой части)
+    // 0) Пишем в Google Sheets (не валим запрос при ошибке)
     try { await appendToSheet(p); } catch (e) { console.error("Sheets error:", e); }
 
     // 1) Письмо участнику
     let participantInfo: any = null;
     try {
       participantInfo = await transporter.sendMail({
-        from: `Reģistrācija <${FROM}>`,
-        to: p.email,
+        from: FROM,                      // Gmail-адрес
+        to: p.email,                     // участнику
         subject: confirmationSubjectLV(),
         text: confirmationTextLV(p.fullName),
-        html: confirmationHtmlLV(p.fullName),
-        replyTo: ADMIN_TO,
+        replyTo: "rudenskonference@gmail.com",
       });
-      console.log("SES_PARTICIPANT_MESSAGE_ID", participantInfo?.messageId);
+      console.log("GMAIL_PARTICIPANT_MESSAGE_ID", participantInfo?.messageId);
     } catch (e) {
-      console.error("SES_PARTICIPANT_ERROR", e);
+      console.error("GMAIL_PARTICIPANT_ERROR", e);
     }
 
-    // 2) Письмо администратору
+    // 2) Письмо админу (на тот же Gmail)
     let adminInfo: any = null;
     try {
       adminInfo = await transporter.sendMail({
-        from: `Reģistrācija <${FROM}>`,
-        to: ADMIN_TO,
+        from: FROM,
+        to: ADMIN_TO,                    // rudenskonference@gmail.com
         subject: adminSubjectLV(p.fullName),
         text: adminTextLV(p),
-        html: adminHtmlLV(p),
-        replyTo: p.email,
+        replyTo: "rudenskonference@gmail.com",
       });
-      console.log("SES_ADMIN_MESSAGE_ID", adminInfo?.messageId);
+      console.log("GMAIL_ADMIN_MESSAGE_ID", adminInfo?.messageId);
     } catch (e) {
-      console.error("SES_ADMIN_ERROR", e);
+      console.error("GMAIL_ADMIN_ERROR", e);
     }
 
     return NextResponse.json({
@@ -199,7 +180,7 @@ export async function POST(req: Request) {
       mail: {
         participantMessageId: participantInfo?.messageId || null,
         adminMessageId: adminInfo?.messageId || null,
-        provider: "ses-smtp",
+        provider: "gmail-smtp",
       },
     });
   } catch (e: any) {
