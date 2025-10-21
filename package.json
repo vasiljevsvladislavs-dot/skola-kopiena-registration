@@ -12,7 +12,8 @@
     "react-dom": "18.3.1",
     "tailwindcss": "3.4.14",
     "postcss": "8.4.47",
-    "autoprefixer": "10.4.20"
+    "autoprefixer": "10.4.20",
+    "zod": "3.23.8"
   },
   "engines": { "node": ">=18.17.0" }
 }
