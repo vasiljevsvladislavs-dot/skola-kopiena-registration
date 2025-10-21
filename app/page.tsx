@@ -2,30 +2,44 @@
 
 import { useState, useMemo, useEffect } from "react";
 import { z } from "zod";
+import { Calendar, Clock, Globe } from "lucide-react";
 
 const schema = z.object({
   fullName: z.string().min(2, "Lūdzu, ievadiet vārdu un uzvārdu"),
   email: z.string().email("Nederīga e-pasta adrese"),
   org: z.string().optional(),
   role: z.string().optional(),
-  about: z.enum(["site","social","friends","other"], { required_error: "Lūdzu, izvēlieties variantu" }),
+  about: z.enum(["site", "social", "friends", "other"], {
+    required_error: "Lūdzu, izvēlieties variantu",
+  }),
   aboutOther: z.string().optional(),
   notes: z.string().optional(),
-  consent: z.literal(true, { errorMap: () => ({ message: "Nepieciešama piekrišana" }) }),
+  consent: z.literal(true, {
+    errorMap: () => ({ message: "Nepieciešama piekrišana" }),
+  }),
 });
 
 export default function Page() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const aboutOptions = useMemo(() => ([
-    { value: "site", label: "Projekta “Skola – kopiena” mājaslapā" },
-    { value: "social", label: "Projekta “Skola – kopiena” sociālajos tīklos (Facebook, Instagram)" },
-    { value: "friends", label: "No kolēģiem / draugiem" },
-    { value: "other", label: "Cits (lūdzu, precizējiet)" },
-  ]), []);
+  const aboutOptions = useMemo(
+    () => [
+      { value: "site", label: "Projekta “Skola – kopiena” mājaslapā" },
+      {
+        value: "social",
+        label:
+          "Projekta “Skola – kopiena” sociālajos tīklos (Facebook, Instagram)",
+      },
+      { value: "friends", label: "No kolēģiem / draugiem" },
+      { value: "other", label: "Cits (lūdzu, precizējiet)" },
+    ],
+    []
+  );
 
-  useEffect(() => { console.log("[REGISTER] page mounted"); }, []);
+  useEffect(() => {
+    console.log("[REGISTER] page mounted");
+  }, []);
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -34,19 +48,21 @@ export default function Page() {
 
     const fd = new FormData(e.currentTarget);
     const payload = {
-      fullName: String(fd.get("fullName")||""),
-      email: String(fd.get("email")||""),
-      org: String(fd.get("org")||""),
-      role: String(fd.get("role")||""),
-      about: String(fd.get("about")||""),
-      aboutOther: String(fd.get("aboutOther")||""),
-      notes: String(fd.get("notes")||""),
-      consent: fd.get("consent")==="on",
+      fullName: String(fd.get("fullName") || ""),
+      email: String(fd.get("email") || ""),
+      org: String(fd.get("org") || ""),
+      role: String(fd.get("role") || ""),
+      about: String(fd.get("about") || ""),
+      aboutOther: String(fd.get("aboutOther") || ""),
+      notes: String(fd.get("notes") || ""),
+      consent: fd.get("consent") === "on",
     };
 
     const parsed = schema.safeParse({
       ...payload,
-      about: (["site","social","friends","other"].includes(payload.about) ? payload.about : undefined) as any,
+      about: (["site", "social", "friends", "other"].includes(payload.about)
+        ? payload.about
+        : undefined) as any,
     });
     if (!parsed.success) {
       setLoading(false);
@@ -79,18 +95,20 @@ export default function Page() {
   }
 
   return (
-    <main className="py-8" data-debug="register-page-no-icons">
+    <main className="py-8" data-debug="register-page">
+      {/* ---------- HEADER ---------- */}
       <header className="mb-6">
         <h1 className="text-3xl font-semibold tracking-tight">
           “Skola – kopienā” rudens konference “Vide. Skola. Kopiena.”
         </h1>
         <p className="text-slate-600 flex items-center gap-2 mt-1">
-          {/* без иконок */}
+          <Calendar className="w-4 h-4 text-[#4a2961]" aria-hidden="true" />
           7. novembrī plkst. 11.00 · tiešraide
         </p>
       </header>
 
       <div className="grid md:grid-cols-5 gap-8">
+        {/* ---------- FORM ---------- */}
         <section className="md:col-span-3">
           <div className="rounded-2xl border border-slate-200 bg-white shadow-sm p-6">
             <p className="text-slate-700 mb-5">
@@ -106,30 +124,55 @@ export default function Page() {
             <form onSubmit={onSubmit} className="space-y-5">
               <div>
                 <label className="block text-sm mb-1">Vārds, uzvārds *</label>
-                <input name="fullName" className="w-full rounded-xl border border-slate-300 p-3 outline-none focus:border-[#4a2961] focus:ring-2 focus:ring-[#eae3f2]" />
+                <input
+                  name="fullName"
+                  className="w-full rounded-xl border border-slate-300 p-3 outline-none focus:border-[#4a2961] focus:ring-2 focus:ring-[#eae3f2]"
+                />
               </div>
 
               <div>
                 <label className="block text-sm mb-1">E-pasts *</label>
-                <input type="email" name="email" className="w-full rounded-xl border border-slate-300 p-3 outline-none focus:border-[#4a2961] focus:ring-2 focus:ring-[#eae3f2]" />
+                <input
+                  type="email"
+                  name="email"
+                  className="w-full rounded-xl border border-slate-300 p-3 outline-none focus:border-[#4a2961] focus:ring-2 focus:ring-[#eae3f2]"
+                />
               </div>
 
               <div>
-                <label className="block text-sm mb-1">Pārstāvētā izglītības iestāde / organizācija / pašvaldība</label>
-                <input name="org" className="w-full rounded-xl border border-slate-300 p-3 outline-none focus:border-[#4a2961] focus:ring-2 focus:ring-[#eae3f2]" />
+                <label className="block text-sm mb-1">
+                  Pārstāvētā izglītības iestāde / organizācija / pašvaldība
+                </label>
+                <input
+                  name="org"
+                  className="w-full rounded-xl border border-slate-300 p-3 outline-none focus:border-[#4a2961] focus:ring-2 focus:ring-[#eae3f2]"
+                />
               </div>
 
               <div>
                 <label className="block text-sm mb-1">Amats</label>
-                <input name="role" className="w-full rounded-xl border border-slate-300 p-3 outline-none focus:border-[#4a2961] focus:ring-2 focus:ring-[#eae3f2]" />
+                <input
+                  name="role"
+                  className="w-full rounded-xl border border-slate-300 p-3 outline-none focus:border-[#4a2961] focus:ring-2 focus:ring-[#eae3f2]"
+                />
               </div>
 
               <div>
-                <label className="block text-sm mb-1">Kā uzzinājāt par konferenci? *</label>
+                <label className="block text-sm mb-1">
+                  Kā uzzinājāt par konferenci? *
+                </label>
                 <div className="space-y-2">
                   {aboutOptions.map((opt) => (
-                    <label key={opt.value} className="flex items-start gap-3 text-sm">
-                      <input type="radio" name="about" value={opt.value} className="mt-1" />
+                    <label
+                      key={opt.value}
+                      className="flex items-start gap-3 text-sm"
+                    >
+                      <input
+                        type="radio"
+                        name="about"
+                        value={opt.value}
+                        className="mt-1"
+                      />
                       <span>{opt.label}</span>
                     </label>
                   ))}
@@ -145,29 +188,62 @@ export default function Page() {
 
               <div>
                 <label className="block text-sm mb-1">Jautājumi / piezīmes</label>
-                <textarea name="notes" rows={4} className="w-full rounded-xl border border-slate-300 p-3 outline-none focus:border-[#4a2961] focus:ring-2 focus:ring-[#eae3f2]" />
+                <textarea
+                  name="notes"
+                  rows={4}
+                  className="w-full rounded-xl border border-slate-300 p-3 outline-none focus:border-[#4a2961] focus:ring-2 focus:ring-[#eae3f2]"
+                />
               </div>
 
               <label className="flex items-start gap-3 text-sm select-none">
                 <input type="checkbox" name="consent" className="mt-1" />
-                <span>Piekrītu, ka mani dati tiek izmantoti tikai konferences organizēšanai.</span>
+                <span>
+                  Piekrītu, ka mani dati tiek izmantoti tikai konferences
+                  organizēšanai.
+                </span>
               </label>
 
-              <button type="submit" disabled={loading} className="rounded-xl bg-[#4a2961] text-white px-5 py-3 font-medium hover:bg-[#5a3474] disabled:opacity-60">
+              <button
+                type="submit"
+                disabled={loading}
+                className="rounded-xl bg-[#4a2961] text-white px-5 py-3 font-medium hover:bg-[#5a3474] disabled:opacity-60"
+              >
                 {loading ? "Nosūtīšana…" : "Reģistrēties"}
               </button>
             </form>
           </div>
         </section>
 
+        {/* ---------- SIDEBAR ---------- */}
         <aside className="md:col-span-2">
           <div className="rounded-2xl border border-slate-200 bg-[#f6f1fa] p-6">
             <h3 className="text-lg font-semibold mb-2">Par konferenci</h3>
-            <p className="text-slate-700">…</p>
+            <p className="text-slate-700">
+              Runāsim par skolu un kopienu sadarbības stiprināšanu, skolēnu un
+              pedagogu labsajūtu, iekļaujošu vidi, kā arī par skolēnu kavējumu
+              problemātiku un risinājumiem Latvijā.
+            </p>
+
             <ul className="mt-4 space-y-1 text-slate-700">
-              <li>• 7. novembris</li>
-              <li>• 11.00 (tiešraide)</li>
-              <li>• www.skola-kopiena.lv</li>
+              <li className="flex items-center gap-2">
+                <Calendar className="w-4 h-4 text-[#4a2961]" />
+                7. novembris
+              </li>
+              <li className="flex items-center gap-2">
+                <Clock className="w-4 h-4 text-[#4a2961]" />
+                11.00 (tiešraide)
+              </li>
+              <li className="flex items-center gap-2">
+                <Globe className="w-4 h-4 text-[#4a2961]" />
+                <a
+                  href="https://www.skola-kopiena.lv"
+                  target="_blank"
+                  className="text-[#4a2961] hover:underline"
+                  rel="noreferrer"
+                >
+                  www.skola-kopiena.lv
+                </a>
+              </li>
             </ul>
           </div>
         </aside>
