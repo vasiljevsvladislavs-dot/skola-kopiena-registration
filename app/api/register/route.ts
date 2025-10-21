@@ -18,7 +18,7 @@ const schema = z.object({
 
 // ENV
 const resendApiKey = process.env.RESEND_API_KEY;
-const FROM = process.env.MAIL_FROM || "info@rudenskonference.lv";
+const FROM = process.env.MAIL_FROM || "noreply@rudenskonference.lv";
 const ADMIN_TO = process.env.MAIL_ADMIN_TO || "info@rudenskonference.lv";
 const EVENT_NAME =
   process.env.EVENT_NAME ||
