@@ -2,12 +2,9 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { Resend } from "resend";
 
-// <— если хочешь красивые шаблоны, можешь подключить позже
-// import { confirmationHtmlLV, adminHtmlLV } from "../../../lib/email-lv";
-
 export const runtime = "nodejs";
 
-// схема тела запроса
+// валидация входных данных
 const schema = z.object({
   fullName: z.string().min(2),
   email: z.string().email(),
@@ -19,7 +16,7 @@ const schema = z.object({
   consent: z.boolean(),
 });
 
-// env
+// ENV
 const resendApiKey = process.env.RESEND_API_KEY;
 const FROM = process.env.MAIL_FROM || "info@rudenskonference.lv";
 const ADMIN_TO = process.env.MAIL_ADMIN_TO || "info@rudenskonference.lv";
@@ -29,7 +26,7 @@ const EVENT_NAME =
 
 const resend = resendApiKey ? new Resend(resendApiKey) : null;
 
-// примитивные html/текст (без внешних импортов — надёжно)
+// простые HTML шаблоны (без внешних импортов)
 function confirmationHtml(name: string) {
   return `<div style="font-family:system-ui,Arial">
     <h2>Reģistrācija apstiprināta 🎉</h2>
@@ -49,8 +46,8 @@ function adminHtml(payload: any) {
   </div>`;
 }
 
+// GET для удобной проверки в браузере
 export async function GET() {
-  // чтобы в браузере по GET было понятно, что всё живо
   return NextResponse.json({ ok: true, endpoint: "/api/register", use: "POST" });
 }
 
@@ -66,16 +63,12 @@ export async function POST(req: Request) {
     }
     const p = parsed.data;
 
-    // ЛОГИ — чтобы увидеть в Vercel Function Logs
-    console.log("REGISTER_START", {
-      hasResend: !!resend,
-      FROM,
-      ADMIN_TO
-    });
+    console.log("REGISTER_START", { hasResend: !!resend, FROM, ADMIN_TO });
 
-    // ——— отправка 2х писем (если есть ключ)
     let r1: any = null, r2: any = null;
+
     if (resend) {
+      // письмо участнику
       try {
         r1 = await resend.emails.send({
           from: `Reģistrācija <${FROM}>`,
@@ -83,13 +76,15 @@ export async function POST(req: Request) {
           subject: `Reģistrācija apstiprināta — ${EVENT_NAME}`,
           html: confirmationHtml(p.fullName),
           text: `Sveiki, ${p.fullName}! Paldies par reģistrāciju: ${EVENT_NAME}. Ja ir jautājumi, rakstiet: ${ADMIN_TO}`,
-          replyTo: ADMIN_TO,
-        });
+          // ВАЖНО: у Resend поле называется reply_to (snake_case)
+          reply_to: ADMIN_TO,
+        } as any);
         console.log("RESEND_PARTICIPANT_ID", r1?.id || r1);
       } catch (e) {
         console.error("RESEND_PARTICIPANT_ERROR", e);
       }
 
+      // письмо администратору
       try {
         r2 = await resend.emails.send({
           from: `Reģistrācija <${FROM}>`,
@@ -97,8 +92,8 @@ export async function POST(req: Request) {
           subject: `Jauna reģistrācija — ${p.fullName}`,
           html: adminHtml(p),
           text: `Jauna reģistrācija: ${p.fullName}, ${p.email}`,
-          replyTo: p.email,
-        });
+          reply_to: p.email, // удобно сразу ответить участнику
+        } as any);
         console.log("RESEND_ADMIN_ID", r2?.id || r2);
       } catch (e) {
         console.error("RESEND_ADMIN_ERROR", e);
@@ -106,8 +101,6 @@ export async function POST(req: Request) {
     } else {
       console.error("NO_RESEND_API_KEY");
     }
-
-    // Если нужно — тут вернём Google Sheets позже (сейчас важно увидеть письма)
 
     return NextResponse.json({
       ok: true,
