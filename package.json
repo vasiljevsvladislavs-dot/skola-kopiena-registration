@@ -19,7 +19,8 @@
   "devDependencies": {
     "typescript": "5.6.3",
     "@types/react": "18.3.5",
-    "@types/node": "20.11.30"
+    "@types/node": "20.11.30",
+    "@types/nodemailer": "6.4.13"
   },
   "engines": { "node": ">=18.17.0" }
 }
