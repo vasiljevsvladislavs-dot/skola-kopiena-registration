@@ -1,7 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
-  // серверный бандл, НЕ 'export'
-  output: 'standalone',
+  output: 'standalone' // НИ В КОЕМ СЛУЧАЕ не 'export'
 };
 module.exports = nextConfig;
