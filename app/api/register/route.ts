@@ -36,7 +36,7 @@ const schema = z.object({
 /* -------------------- ENV -------------------- */
 // Gmail SMTP
 const SMTP_HOST = process.env.SMTP_HOST || "smtp.gmail.com";
-theconst SMTP_PORT = Number(process.env.SMTP_PORT || 465);
+const SMTP_PORT = Number(process.env.SMTP_PORT || 465);
 const SMTP_USER = process.env.SMTP_USER || "rudenskonference@gmail.com";
 const SMTP_PASS = process.env.SMTP_PASS || ""; // App Password
 
