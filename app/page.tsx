@@ -127,7 +127,7 @@ export default function Page() {
           <div className="rounded-2xl border border-slate-200 bg-white shadow-sm p-6">
             {/* ЗАМЕНА текста перед формой */}
             <p className="text-slate-700 mb-5">
-              Aicinām šeit reģistrēties, lai piedalītos konferencē “Vide. Skola. Kopiena.”.
+              Aicinām šeit reģistrēties, lai piedalītos konferencē “Vide. Skola. Kopiena.”
             </p>
 
             {error && (
