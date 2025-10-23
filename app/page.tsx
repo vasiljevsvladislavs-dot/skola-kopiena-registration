@@ -4,33 +4,42 @@ import { useState, useMemo, useEffect } from "react";
 import { z } from "zod";
 import { Calendar, Clock, Globe } from "lucide-react";
 
-const schema = z.object({
-  fullName: z.string().min(2, "Lūdzu, ievadiet vārdu un uzvārdu"),
-  email: z.string().email("Nederīga e-pasta adrese"),
-  org: z.string().optional(),
-  role: z.string().optional(),
-  about: z.enum(["site", "social", "friends", "other"], {
-    required_error: "Lūdzu, izvēlieties variantu",
-  }),
-  aboutOther: z.string().optional(),
-  notes: z.string().optional(),
-  consent: z.literal(true, {
-    errorMap: () => ({ message: "Nepieciešama piekrišana" }),
-  }),
-});
+const schema = z
+  .object({
+    fullName: z.string().min(2, "Lūdzu, ievadiet vārdu un uzvārdu"),
+    email: z.string().email("Nederīga e-pasta adrese"),
+    // ОБЯЗАТЕЛЬНЫЕ org/role
+    org: z.string().min(1, "Lūdzu, ievadiet iestādi / organizāciju / pašvaldību"),
+    role: z.string().min(1, "Lūdzu, ievadiet amatu"),
+    about: z.enum(["site", "social", "friends", "other"], {
+      required_error: "Lūdzu, izvēlieties variantu",
+    }),
+    aboutOther: z.string().optional(),
+    notes: z.string().optional(),
+    consent: z.literal(true, {
+      errorMap: () => ({ message: "Nepieciešama piekrišana" }),
+    }),
+  })
+  .superRefine((val, ctx) => {
+    if (val.about === "other" && (!val.aboutOther || !val.aboutOther.trim())) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["aboutOther"],
+        message: "Lūdzu, precizējiet 'Cits' lauku",
+      });
+    }
+  });
 
 export default function Page() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const [aboutValue, setAboutValue] = useState<string>("");
 
   const aboutOptions = useMemo(
     () => [
       { value: "site", label: "Projekta “Skola – kopiena” mājaslapā" },
-      {
-        value: "social",
-        label:
-          "Projekta “Skola – kopiena” sociālajos tīklos (Facebook, Instagram)",
-      },
+      { value: "social", label: "Projekta “Skola – kopiena” sociālajos tīklos (Facebook, Instagram)" },
       { value: "friends", label: "No kolēģiem / draugiem" },
       { value: "other", label: "Cits (lūdzu, precizējiet)" },
     ],
@@ -44,34 +53,39 @@ export default function Page() {
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setError(null);
+    setFieldErrors({});
     setLoading(true);
 
     const fd = new FormData(e.currentTarget);
     const payload = {
-      fullName: String(fd.get("fullName") || ""),
-      email: String(fd.get("email") || ""),
-      org: String(fd.get("org") || ""),
-      role: String(fd.get("role") || ""),
+      fullName: String(fd.get("fullName") || "").trim(),
+      email: String(fd.get("email") || "").trim(),
+      org: String(fd.get("org") || "").trim(),
+      role: String(fd.get("role") || "").trim(),
       about: String(fd.get("about") || ""),
-      aboutOther: String(fd.get("aboutOther") || ""),
-      notes: String(fd.get("notes") || ""),
+      aboutOther: String(fd.get("aboutOther") || "").trim(),
+      notes: String(fd.get("notes") || "").trim(),
       consent: fd.get("consent") === "on",
     };
 
     const parsed = schema.safeParse({
       ...payload,
       about: (["site", "social", "friends", "other"].includes(payload.about)
-        ? payload.about
-        : undefined) as any,
+        ? (payload.about as "site" | "social" | "friends" | "other")
+        : undefined),
     });
+
     if (!parsed.success) {
       setLoading(false);
-      setError(parsed.error.errors[0]?.message || "Pārbaudiet ievades laukus");
-      return;
-    }
-    if (parsed.data.about === "other" && !payload.aboutOther.trim()) {
-      setLoading(false);
-      setError("Lūdzu, precizējiet 'Cits' lauku");
+      // Покажем первую ошибку сверху и разложим по полям
+      const firstMsg = parsed.error.errors[0]?.message || "Pārbaudiet ievades laukus";
+      const perField: Record<string, string> = {};
+      for (const issue of parsed.error.errors) {
+        const key = issue.path?.[0] as string;
+        if (key) perField[key] = issue.message;
+      }
+      setFieldErrors(perField);
+      setError(firstMsg);
       return;
     }
 
@@ -93,6 +107,8 @@ export default function Page() {
       setLoading(false);
     }
   }
+
+  const isOther = aboutValue === "other";
 
   return (
     <main className="py-8" data-debug="register-page">
@@ -121,13 +137,18 @@ export default function Page() {
               </div>
             )}
 
-            <form onSubmit={onSubmit} className="space-y-5">
+            <form onSubmit={onSubmit} className="space-y-5" noValidate>
               <div>
                 <label className="block text-sm mb-1">Vārds, uzvārds *</label>
                 <input
                   name="fullName"
+                  required
+                  aria-invalid={!!fieldErrors.fullName}
                   className="w-full rounded-xl border border-slate-300 p-3 outline-none focus:border-[#4a2961] focus:ring-2 focus:ring-[#eae3f2]"
                 />
+                {fieldErrors.fullName && (
+                  <p className="mt-1 text-sm text-rose-700">{fieldErrors.fullName}</p>
+                )}
               </div>
 
               <div>
@@ -135,26 +156,41 @@ export default function Page() {
                 <input
                   type="email"
                   name="email"
+                  required
+                  aria-invalid={!!fieldErrors.email}
                   className="w-full rounded-xl border border-slate-300 p-3 outline-none focus:border-[#4a2961] focus:ring-2 focus:ring-[#eae3f2]"
                 />
+                {fieldErrors.email && (
+                  <p className="mt-1 text-sm text-rose-700">{fieldErrors.email}</p>
+                )}
               </div>
 
               <div>
                 <label className="block text-sm mb-1">
-                  Pārstāvētā izglītības iestāde / organizācija / pašvaldība
+                  Pārstāvētā izglītības iestāde / organizācija / pašvaldība *
                 </label>
                 <input
                   name="org"
+                  required
+                  aria-invalid={!!fieldErrors.org}
                   className="w-full rounded-xl border border-slate-300 p-3 outline-none focus:border-[#4a2961] focus:ring-2 focus:ring-[#eae3f2]"
                 />
+                {fieldErrors.org && (
+                  <p className="mt-1 text-sm text-rose-700">{fieldErrors.org}</p>
+                )}
               </div>
 
               <div>
-                <label className="block text-sm mb-1">Amats</label>
+                <label className="block text-sm mb-1">Amats *</label>
                 <input
                   name="role"
+                  required
+                  aria-invalid={!!fieldErrors.role}
                   className="w-full rounded-xl border border-slate-300 p-3 outline-none focus:border-[#4a2961] focus:ring-2 focus:ring-[#eae3f2]"
                 />
+                {fieldErrors.role && (
+                  <p className="mt-1 text-sm text-rose-700">{fieldErrors.role}</p>
+                )}
               </div>
 
               <div>
@@ -163,27 +199,39 @@ export default function Page() {
                 </label>
                 <div className="space-y-2">
                   {aboutOptions.map((opt) => (
-                    <label
-                      key={opt.value}
-                      className="flex items-start gap-3 text-sm"
-                    >
+                    <label key={opt.value} className="flex items-start gap-3 text-sm">
                       <input
                         type="radio"
                         name="about"
                         value={opt.value}
+                        required
                         className="mt-1"
+                        onChange={(e) => setAboutValue(e.currentTarget.value)}
+                        aria-invalid={!!fieldErrors.about}
                       />
                       <span>{opt.label}</span>
                     </label>
                   ))}
+
+                  {/* aboutOther — показываем и требуем только при "Cits" */}
                   <div className="pl-7">
                     <input
                       name="aboutOther"
                       placeholder="Ja izvēlējāties “Cits”, lūdzu, precizējiet"
-                      className="w-full rounded-xl border border-slate-300 p-3 outline-none focus:border-[#4a2961] focus:ring-2 focus:ring-[#eae3f2]"
+                      aria-invalid={!!fieldErrors.aboutOther}
+                      required={isOther}
+                      className={`w-full rounded-xl border p-3 outline-none focus:border-[#4a2961] focus:ring-2 focus:ring-[#eae3f2] ${
+                        isOther ? "border-slate-300" : "border-slate-200"
+                      }`}
                     />
+                    {fieldErrors.aboutOther && (
+                      <p className="mt-1 text-sm text-rose-700">{fieldErrors.aboutOther}</p>
+                    )}
                   </div>
                 </div>
+                {fieldErrors.about && (
+                  <p className="mt-1 text-sm text-rose-700">{fieldErrors.about}</p>
+                )}
               </div>
 
               <div>
@@ -196,12 +244,14 @@ export default function Page() {
               </div>
 
               <label className="flex items-start gap-3 text-sm select-none">
-                <input type="checkbox" name="consent" className="mt-1" />
+                <input type="checkbox" name="consent" required className="mt-1" />
                 <span>
-                  Piekrītu, ka mani dati tiek izmantoti tikai konferences
-                  organizēšanai.
+                  Piekrītu, ka mani dati tiek izmantoti tikai konferences organizēšanai.
                 </span>
               </label>
+              {fieldErrors.consent && (
+                <p className="mt-1 text-sm text-rose-700">{fieldErrors.consent}</p>
+              )}
 
               <button
                 type="submit"
