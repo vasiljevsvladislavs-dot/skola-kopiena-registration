@@ -8,7 +8,6 @@ const schema = z
   .object({
     fullName: z.string().min(2, "Lūdzu, ievadiet vārdu un uzvārdu"),
     email: z.string().email("Nederīga e-pasta adrese"),
-    // ОБЯЗАТЕЛЬНЫЕ org/role
     org: z.string().min(1, "Lūdzu, ievadiet iestādi / organizāciju / pašvaldību"),
     role: z.string().min(1, "Lūdzu, ievadiet amatu"),
     about: z.enum(["site", "social", "friends", "other"], {
@@ -77,7 +76,6 @@ export default function Page() {
 
     if (!parsed.success) {
       setLoading(false);
-      // Покажем первую ошибку сверху и разложим по полям
       const firstMsg = parsed.error.errors[0]?.message || "Pārbaudiet ievades laukus";
       const perField: Record<string, string> = {};
       for (const issue of parsed.error.errors) {
@@ -127,8 +125,9 @@ export default function Page() {
         {/* ---------- FORM ---------- */}
         <section className="md:col-span-3">
           <div className="rounded-2xl border border-slate-200 bg-white shadow-sm p-6">
+            {/* ЗАМЕНА текста перед формой */}
             <p className="text-slate-700 mb-5">
-              Aicinām reģistrēties, lai piedalītos konferencē…
+              Aicinām šeit reģistrēties, lai piedalītos konferencē “Vide. Skola. Kopiena.”.
             </p>
 
             {error && (
@@ -213,7 +212,6 @@ export default function Page() {
                     </label>
                   ))}
 
-                  {/* aboutOther — показываем и требуем только при "Cits" */}
                   <div className="pl-7">
                     <input
                       name="aboutOther"
@@ -268,10 +266,12 @@ export default function Page() {
         <aside className="md:col-span-2">
           <div className="rounded-2xl border border-slate-200 bg-[#f6f1fa] p-6">
             <h3 className="text-lg font-semibold mb-2">Par konferenci</h3>
-            <p className="text-slate-700">
-              Runāsim par skolu un kopienu sadarbības stiprināšanu, skolēnu un
-              pedagogu labsajūtu, iekļaujošu vidi, kā arī par skolēnu kavējumu
-              problemātiku un risinājumiem Latvijā.
+            {/* ЗАМЕНА текста справа */}
+            <p className="text-slate-700 whitespace-pre-line">
+              Aicinām piedalīties projekta “Skola – kopienā” rudens konferencē “Vide. Skola. Kopiena.”,
+              kas notiks 7. novembrī plkst. 11.00 tiešraidē. Konferences laikā runāsim par skolu un kopienu
+              sadarbības stiprināšanu, skolēnu un pedagogu labsajūtu, iekļaujošu vidi, kā arī par skolēnu
+              kavējumu problemātiku Latvijā, iespējamiem risinājumiem un gūto pieredzi.
             </p>
 
             <ul className="mt-4 space-y-1 text-slate-700">
