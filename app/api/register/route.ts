@@ -7,49 +7,45 @@ import { google } from "googleapis";
 export const runtime = "nodejs";
 
 /* -------------------- Валидация входа -------------------- */
-// Обязательные: fullName, email, org, municipality, role, about, consent=true
-// Если about=other — обязателен aboutOther
-const schema = z.object({
-  fullName: z.string().trim().min(2, "Lūdzu, ievadiet vārdu un uzvārdu"),
-  email: z.string().trim().email("Nederīga e-pasta adrese"),
-  org: z.string().trim().min(1, "Lūdzu, ievadiet iestādi / organizāciju"),
-  municipality: z.string().trim().min(1, "Lūdzu, ievadiet pašvaldību"),
-  role: z.string().trim().min(1, "Lūdzu, ievadiet amatu"),
-  about: z.enum(["site", "social", "friends", "other"], {
-    required_error: "Lūdzu, izvēlieties variantu",
-  }),
-  aboutOther: z.string().trim().optional(),
-  notes: z.string().trim().optional(),
-  consent: z.literal(true, {
-    errorMap: () => ({ message: "Nepieciešama piekrišana" }),
-  }),
-}).superRefine((val, ctx) => {
-  if (val.about === "other" && (!val.aboutOther || val.aboutOther.trim() === "")) {
-    ctx.addIssue({
-      code: z.ZodIssueCode.custom,
-      path: ["aboutOther"],
-      message: "Lūdzu, precizējiet 'Cits' lauku",
-    });
-  }
-});
+const schema = z
+  .object({
+    fullName: z.string().trim().min(2, "Lūdzu, ievadiet vārdu un uzvārdu"),
+    email: z.string().trim().email("Nederīga e-pasta adrese"),
+    org: z.string().trim().min(1, "Lūdzu, ievadiet iestādi / organizāciju"),
+    municipality: z.string().trim().min(1, "Lūdzu, ievadiet pašvaldību"),
+    role: z.string().trim().min(1, "Lūdzu, ievadiet amatu"),
+    about: z.enum(["site", "social", "friends", "other"], {
+      required_error: "Lūdzu, izvēlieties variantu",
+    }),
+    aboutOther: z.string().trim().optional(),
+    notes: z.string().trim().optional(),
+    consent: z.literal(true, {
+      errorMap: () => ({ message: "Nepieciešama piekrišana" }),
+    }),
+  })
+  .superRefine((val, ctx) => {
+    if (val.about === "other" && (!val.aboutOther || val.aboutOther.trim() === "")) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["aboutOther"],
+        message: "Lūdzu, precizējiet 'Cits' lauku",
+      });
+    }
+  });
 
 /* -------------------- ENV -------------------- */
-// Gmail SMTP
 const SMTP_HOST = process.env.SMTP_HOST || "smtp.gmail.com";
 const SMTP_PORT = Number(process.env.SMTP_PORT || 465);
 const SMTP_USER = process.env.SMTP_USER || "rudenskonference@gmail.com";
-const SMTP_PASS = process.env.SMTP_PASS || ""; // App Password
+const SMTP_PASS = process.env.SMTP_PASS || "";
 
-// От кого и куда шлём
 const FROM = process.env.MAIL_FROM || `Reģistrācija <rudenskonference@gmail.com>`;
 const ADMIN_TO = process.env.MAIL_ADMIN_TO || "rudenskonference@gmail.com";
 
-// (используется только в письме админу)
 const EVENT_NAME =
   process.env.EVENT_NAME ||
   "Skola – kopienā rudens konference “Vide. Skola. Kopiena.”";
 
-// Google Sheets (опционально)
 const GSHEET_ID = process.env.GSHEET_ID;
 const SA_JSON_RAW = process.env.GOOGLE_SERVICE_ACCOUNT_JSON;
 
@@ -57,18 +53,16 @@ const SA_JSON_RAW = process.env.GOOGLE_SERVICE_ACCOUNT_JSON;
 const transporter = nodemailer.createTransport({
   host: SMTP_HOST,
   port: SMTP_PORT,
-  secure: SMTP_PORT === 465, // Gmail рекомендует 465/SSL
+  secure: SMTP_PORT === 465,
   auth: { user: SMTP_USER, pass: SMTP_PASS },
 });
 
-/* -------------------- Google Sheets (опционально) -------------------- */
+/* -------------------- Google Sheets -------------------- */
 async function appendToSheet(payload: z.infer<typeof schema>) {
   if (!GSHEET_ID || !SA_JSON_RAW) return;
-
   const creds = JSON.parse(SA_JSON_RAW);
-  if (typeof creds?.private_key === "string") {
+  if (typeof creds?.private_key === "string")
     creds.private_key = creds.private_key.replace(/\\n/g, "\n");
-  }
 
   const auth = new google.auth.JWT(
     creds.client_email,
@@ -93,34 +87,65 @@ async function appendToSheet(payload: z.infer<typeof schema>) {
     valueInputOption: "USER_ENTERED",
     requestBody: {
       values: [[
-        ts,                         // A – Timestamp
-        payload.fullName,           // B – Vārds, uzvārds
-        payload.email,              // C – E-pasts
-        payload.org,                // D – Organizācija
-        payload.municipality,       // E – Pašvaldība
-        payload.role,               // F – Amats
-        aboutMap[payload.about],    // G – Kā uzzināja
-        payload.notes || "",        // H – Piezīmes
+        ts,
+        payload.fullName,
+        payload.email,
+        payload.org,
+        payload.municipality,
+        payload.role,
+        aboutMap[payload.about],
+        payload.notes || "",
       ]],
     },
   });
 }
 
 /* -------------------- Письма -------------------- */
-// Тема/тексты для участника — ровно как согласовано
-function confirmationTextLV() {
-  return [
-    "Pateicamies par reģistrāciju projekta “Skola – kopienā” rudens konferencē “Vide. Skola. Kopiena.”, kas notiks 7. novembrī plkst. 11.00, tiešraidē.",
-    "Tiešraide būs skatāma projekta <a href=\"https://www.facebook.com/skolakopiena.lv\">Facebook</a> lapā un projekta tīmekļvietnē www.skola-kopiena.lv/news.",
-    "",
-    "Ja radušies kādi jautājumi, lūdzu, sazinieties ar mums e-pastā rudenskonference@gmail.com",
-    "",
-    "Projekta “Skola – kopienā” komanda",
-    "🌐 www.skola-kopiena.lv/news",
-  ].join("\n");
+function confirmationSubjectLV() {
+  return 'Reģistrācija projekta “Skola – kopienā” rudens konferencei “Vide. Skola. Kopiena.” ir apstiprināta!';
 }
 
-// Админу: чёткое резюме заявки
+// HTML письмо участнику (с гиперссылками)
+function confirmationTextLV() {
+  return `
+    <div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;line-height:1.6;color:#111">
+      <p>
+        Pateicamies par reģistrāciju projekta “Skola – kopienā” rudens
+        konferencē “Vide. Skola. Kopiena.”, kas notiks
+        <strong>7. novembrī plkst. 11.00</strong>, tiešraidē.
+      </p>
+      <p>
+        Tiešraide būs skatāma projekta
+        <a href="https://www.facebook.com/skolakopiena.lv"
+           style="color:#4a2961;text-decoration:none;font-weight:500">
+          Facebook
+        </a>
+        lapā un projekta tīmekļvietnē
+        <a href="https://www.skola-kopiena.lv/news"
+           style="color:#4a2961;text-decoration:none;font-weight:500">
+          www.skola-kopiena.lv/news
+        </a>.
+      </p>
+      <p>
+        Ja radušies kādi jautājumi, lūdzu, sazinieties ar mums e-pastā
+        <a href="mailto:rudenskonference@gmail.com"
+           style="color:#4a2961;text-decoration:none;font-weight:500">
+          rudenskonference@gmail.com
+        </a>
+      </p>
+      <p>
+        Projekta “Skola – kopienā” komanda<br/>
+        🌐
+        <a href="https://www.skola-kopiena.lv/news"
+           style="color:#4a2961;text-decoration:none;font-weight:500">
+          www.skola-kopiena.lv/news
+        </a>
+      </p>
+    </div>
+  `;
+}
+
+// письмо админу
 function adminSubjectLV(name: string) {
   return `Jauna reģistrācija — ${name}`;
 }
@@ -144,20 +169,21 @@ function adminTextLV(p: z.infer<typeof schema>) {
     `Amats: ${p.role}`,
     `Kā uzzināja: ${aboutReadable}`,
     p.notes ? `Piezīmes: ${p.notes}` : "",
-  ].filter(Boolean).join("\n");
+  ]
+    .filter(Boolean)
+    .join("\n");
 }
 
-/* -------------------- Проверка GET -------------------- */
+/* -------------------- GET -------------------- */
 export async function GET() {
   return NextResponse.json({ ok: true, endpoint: "/api/register", method: "POST" });
 }
 
-/* -------------------- Основной POST -------------------- */
+/* -------------------- POST -------------------- */
 export async function POST(req: Request) {
   try {
     const data = await req.json();
 
-    // Тримминг и строгая валидация
     const parsed = schema.safeParse({
       ...data,
       fullName: String(data.fullName || "").trim(),
@@ -177,19 +203,23 @@ export async function POST(req: Request) {
         { status: 400 }
       );
     }
+
     const p = parsed.data;
 
-    // 0) Google Sheets (не валим запрос при ошибке)
-    try { await appendToSheet(p); } catch (e) { console.error("Sheets error:", e); }
+    try {
+      await appendToSheet(p);
+    } catch (e) {
+      console.error("Sheets error:", e);
+    }
 
-    // 1) Письмо участнику
+    // Письмо участнику (HTML)
     let participantInfo: any = null;
     try {
       participantInfo = await transporter.sendMail({
-        from: FROM, // "Reģistrācija <rudenskonference@gmail.com>"
+        from: FROM,
         to: p.email,
         subject: confirmationSubjectLV(),
-        text: confirmationTextLV(),
+        html: confirmationTextLV(),
         replyTo: "rudenskonference@gmail.com",
       });
       console.log("GMAIL_PARTICIPANT_MESSAGE_ID", participantInfo?.messageId);
@@ -197,7 +227,7 @@ export async function POST(req: Request) {
       console.error("GMAIL_PARTICIPANT_ERROR", e);
     }
 
-    // 2) Письмо админу
+    // Письмо админу
     let adminInfo: any = null;
     try {
       adminInfo = await transporter.sendMail({
