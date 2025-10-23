@@ -193,7 +193,7 @@ export default function Page() {
 
               {/* Role */}
               <div>
-                <label className="block text-sm mb-1">Amats *</label>
+                <label className="block text-sm mb-1">Amats / loma *</label>
                 <input
                   name="role"
                   required
