@@ -7,12 +7,13 @@ import { google } from "googleapis";
 export const runtime = "nodejs";
 
 /* -------------------- Валидация входа -------------------- */
-// Обязательные: fullName, email, org, role, about, consent=true
+// Обязательные: fullName, email, org, municipality, role, about, consent=true
 // Если about=other — обязателен aboutOther
 const schema = z.object({
   fullName: z.string().trim().min(2, "Lūdzu, ievadiet vārdu un uzvārdu"),
   email: z.string().trim().email("Nederīga e-pasta adrese"),
-  org: z.string().trim().min(1, "Lūdzu, ievadiet iestādi / organizāciju / pašvaldību"),
+  org: z.string().trim().min(1, "Lūdzu, ievadiet iestādi / organizāciju"),
+  municipality: z.string().trim().min(1, "Lūdzu, ievadiet pašvaldību"),
   role: z.string().trim().min(1, "Lūdzu, ievadiet amatu"),
   about: z.enum(["site", "social", "friends", "other"], {
     required_error: "Lūdzu, izvēlieties variantu",
@@ -35,7 +36,7 @@ const schema = z.object({
 /* -------------------- ENV -------------------- */
 // Gmail SMTP
 const SMTP_HOST = process.env.SMTP_HOST || "smtp.gmail.com";
-const SMTP_PORT = Number(process.env.SMTP_PORT || 465);
+theconst SMTP_PORT = Number(process.env.SMTP_PORT || 465);
 const SMTP_USER = process.env.SMTP_USER || "rudenskonference@gmail.com";
 const SMTP_PASS = process.env.SMTP_PASS || ""; // App Password
 
@@ -57,10 +58,7 @@ const transporter = nodemailer.createTransport({
   host: SMTP_HOST,
   port: SMTP_PORT,
   secure: SMTP_PORT === 465, // Gmail рекомендует 465/SSL
-  auth: {
-    user: SMTP_USER,
-    pass: SMTP_PASS, // 🔒 только из переменных окружения
-  },
+  auth: { user: SMTP_USER, pass: SMTP_PASS },
 });
 
 /* -------------------- Google Sheets (опционально) -------------------- */
@@ -91,17 +89,18 @@ async function appendToSheet(payload: z.infer<typeof schema>) {
 
   await sheets.spreadsheets.values.append({
     spreadsheetId: GSHEET_ID,
-    range: "A:G",
-    valueInputOption: "RAW",
+    range: "A:H",
+    valueInputOption: "USER_ENTERED",
     requestBody: {
       values: [[
-        ts,
-        payload.fullName,
-        payload.email,
-        payload.org,
-        payload.role,
-        aboutMap[payload.about],
-        payload.notes || "",
+        ts,                         // A – Timestamp
+        payload.fullName,           // B – Vārds, uzvārds
+        payload.email,              // C – E-pasts
+        payload.org,                // D – Organizācija
+        payload.municipality,       // E – Pašvaldība
+        payload.role,               // F – Amats
+        aboutMap[payload.about],    // G – Kā uzzināja
+        payload.notes || "",        // H – Piezīmes
       ]],
     },
   });
@@ -141,13 +140,12 @@ function adminTextLV(p: z.infer<typeof schema>) {
     "— — —",
     `Vārds: ${p.fullName}`,
     `E-pasts: ${p.email}`,
-    `Iestāde/organizācija/pašvaldība: ${p.org}`,
+    `Iestāde/organizācija: ${p.org}`,
+    `Pašvaldība: ${p.municipality}`,
     `Amats: ${p.role}`,
     `Kā uzzināja: ${aboutReadable}`,
     p.notes ? `Piezīmes: ${p.notes}` : "",
-  ]
-    .filter(Boolean)
-    .join("\n");
+  ].filter(Boolean).join("\n");
 }
 
 /* -------------------- Проверка GET -------------------- */
@@ -166,6 +164,7 @@ export async function POST(req: Request) {
       fullName: String(data.fullName || "").trim(),
       email: String(data.email || "").trim(),
       org: String(data.org || "").trim(),
+      municipality: String(data.municipality || "").trim(),
       role: String(data.role || "").trim(),
       about: data.about,
       aboutOther: String(data.aboutOther || "").trim(),
@@ -182,11 +181,7 @@ export async function POST(req: Request) {
     const p = parsed.data;
 
     // 0) Google Sheets (не валим запрос при ошибке)
-    try {
-      await appendToSheet(p);
-    } catch (e) {
-      console.error("Sheets error:", e);
-    }
+    try { await appendToSheet(p); } catch (e) { console.error("Sheets error:", e); }
 
     // 1) Письмо участнику
     let participantInfo: any = null;
