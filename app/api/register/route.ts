@@ -108,14 +108,10 @@ async function appendToSheet(payload: z.infer<typeof schema>) {
 
 /* -------------------- Письма -------------------- */
 // Тема/тексты для участника — ровно как согласовано
-function confirmationSubjectLV() {
-  return "Reģistrācija projekta “Skola – kopienā” rudens konferencei “Vide. Skola. Kopiena.” ir apstiprināta!";
-}
-
 function confirmationTextLV() {
   return [
     "Pateicamies par reģistrāciju projekta “Skola – kopienā” rudens konferencē “Vide. Skola. Kopiena.”, kas notiks 7. novembrī plkst. 11.00, tiešraidē.",
-    "Tiešraide būs skatāma projekta Facebook lapā (https://www.facebook.com/skolakopiena.lv) un projekta tīmekļvietnē www.skola-kopiena.lv.",
+    "Tiešraide būs skatāma projekta <a href=\"https://www.facebook.com/skolakopiena.lv\">Facebook</a> lapā un projekta tīmekļvietnē www.skola-kopiena.lv/news.",
     "",
     "Ja radušies kādi jautājumi, lūdzu, sazinieties ar mums e-pastā rudenskonference@gmail.com",
     "",
