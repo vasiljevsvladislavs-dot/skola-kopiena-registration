@@ -8,7 +8,8 @@ const schema = z
   .object({
     fullName: z.string().min(2, "Lūdzu, ievadiet vārdu un uzvārdu"),
     email: z.string().email("Nederīga e-pasta adrese"),
-    org: z.string().min(1, "Lūdzu, ievadiet iestādi / organizāciju / pašvaldību"),
+    org: z.string().min(1, "Lūdzu, ievadiet iestādi / organizāciju"),
+    municipality: z.string().min(1, "Lūdzu, ievadiet pašvaldību"),
     role: z.string().min(1, "Lūdzu, ievadiet amatu"),
     about: z.enum(["site", "social", "friends", "other"], {
       required_error: "Lūdzu, izvēlieties variantu",
@@ -45,10 +46,6 @@ export default function Page() {
     []
   );
 
-  useEffect(() => {
-    console.log("[REGISTER] page mounted");
-  }, []);
-
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setError(null);
@@ -60,6 +57,7 @@ export default function Page() {
       fullName: String(fd.get("fullName") || "").trim(),
       email: String(fd.get("email") || "").trim(),
       org: String(fd.get("org") || "").trim(),
+      municipality: String(fd.get("municipality") || "").trim(),
       role: String(fd.get("role") || "").trim(),
       about: String(fd.get("about") || ""),
       aboutOther: String(fd.get("aboutOther") || "").trim(),
@@ -76,14 +74,13 @@ export default function Page() {
 
     if (!parsed.success) {
       setLoading(false);
-      const firstMsg = parsed.error.errors[0]?.message || "Pārbaudiet ievades laukus";
       const perField: Record<string, string> = {};
       for (const issue of parsed.error.errors) {
         const key = issue.path?.[0] as string;
         if (key) perField[key] = issue.message;
       }
       setFieldErrors(perField);
-      setError(firstMsg);
+      setError(parsed.error.errors[0]?.message || "Pārbaudiet ievades laukus");
       return;
     }
 
@@ -110,7 +107,6 @@ export default function Page() {
 
   return (
     <main className="py-8" data-debug="register-page">
-      {/* ---------- HEADER ---------- */}
       <header className="mb-6">
         <h1 className="text-3xl font-semibold tracking-tight">
           “Skola – kopienā” rudens konference “Vide. Skola. Kopiena.”
@@ -125,9 +121,8 @@ export default function Page() {
         {/* ---------- FORM ---------- */}
         <section className="md:col-span-3">
           <div className="rounded-2xl border border-slate-200 bg-white shadow-sm p-6">
-            {/* ЗАМЕНА текста перед формой */}
             <p className="text-slate-700 mb-5">
-              Aicinām šeit reģistrēties, lai piedalītos konferencē “Vide. Skola. Kopiena.”
+              Aicinām šeit reģistrēties, lai piedalītos konferencē “Vide. Skola. Kopiena.”.
             </p>
 
             {error && (
@@ -137,6 +132,7 @@ export default function Page() {
             )}
 
             <form onSubmit={onSubmit} className="space-y-5" noValidate>
+              {/* Name */}
               <div>
                 <label className="block text-sm mb-1">Vārds, uzvārds *</label>
                 <input
@@ -150,6 +146,7 @@ export default function Page() {
                 )}
               </div>
 
+              {/* Email */}
               <div>
                 <label className="block text-sm mb-1">E-pasts *</label>
                 <input
@@ -164,9 +161,10 @@ export default function Page() {
                 )}
               </div>
 
+              {/* Organization */}
               <div>
                 <label className="block text-sm mb-1">
-                  Pārstāvētā izglītības iestāde / organizācija / pašvaldība *
+                  Pārstāvētā izglītības iestāde / organizācija *
                 </label>
                 <input
                   name="org"
@@ -179,6 +177,21 @@ export default function Page() {
                 )}
               </div>
 
+              {/* Municipality */}
+              <div>
+                <label className="block text-sm mb-1">Pārstāvētā pašvaldība *</label>
+                <input
+                  name="municipality"
+                  required
+                  aria-invalid={!!fieldErrors.municipality}
+                  className="w-full rounded-xl border border-slate-300 p-3 outline-none focus:border-[#4a2961] focus:ring-2 focus:ring-[#eae3f2]"
+                />
+                {fieldErrors.municipality && (
+                  <p className="mt-1 text-sm text-rose-700">{fieldErrors.municipality}</p>
+                )}
+              </div>
+
+              {/* Role */}
               <div>
                 <label className="block text-sm mb-1">Amats *</label>
                 <input
@@ -192,6 +205,7 @@ export default function Page() {
                 )}
               </div>
 
+              {/* About */}
               <div>
                 <label className="block text-sm mb-1">
                   Kā uzzinājāt par konferenci? *
@@ -227,11 +241,9 @@ export default function Page() {
                     )}
                   </div>
                 </div>
-                {fieldErrors.about && (
-                  <p className="mt-1 text-sm text-rose-700">{fieldErrors.about}</p>
-                )}
               </div>
 
+              {/* Notes */}
               <div>
                 <label className="block text-sm mb-1">Jautājumi / piezīmes</label>
                 <textarea
@@ -241,15 +253,13 @@ export default function Page() {
                 />
               </div>
 
+              {/* Consent */}
               <label className="flex items-start gap-3 text-sm select-none">
                 <input type="checkbox" name="consent" required className="mt-1" />
                 <span>
                   Piekrītu, ka mani dati tiek izmantoti tikai konferences organizēšanai.
                 </span>
               </label>
-              {fieldErrors.consent && (
-                <p className="mt-1 text-sm text-rose-700">{fieldErrors.consent}</p>
-              )}
 
               <button
                 type="submit"
@@ -266,7 +276,6 @@ export default function Page() {
         <aside className="md:col-span-2">
           <div className="rounded-2xl border border-slate-200 bg-[#f6f1fa] p-6">
             <h3 className="text-lg font-semibold mb-2">Par konferenci</h3>
-            {/* ЗАМЕНА текста справа */}
             <p className="text-slate-700 whitespace-pre-line">
               Aicinām piedalīties projekta “Skola – kopienā” rudens konferencē “Vide. Skola. Kopiena.”,
               kas notiks 7. novembrī plkst. 11.00 tiešraidē. Konferences laikā runāsim par skolu un kopienu
@@ -286,12 +295,12 @@ export default function Page() {
               <li className="flex items-center gap-2">
                 <Globe className="w-4 h-4 text-[#4a2961]" />
                 <a
-                  href="https://www.skola-kopiena.lv"
+                  href="https://www.skola-kopiena.lv/news"
                   target="_blank"
                   className="text-[#4a2961] hover:underline"
                   rel="noreferrer"
                 >
-                  www.skola-kopiena.lv
+                  www.skola-kopiena.lv/news
                 </a>
               </li>
             </ul>
