@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo } from "react";
 import { z } from "zod";
 import { Calendar, Clock, Globe } from "lucide-react";
 
@@ -96,7 +96,7 @@ export default function Page() {
         return;
       }
       window.location.href = "/success";
-    } catch (err) {
+    } catch {
       setError("Kļūda nosūtot datus");
     } finally {
       setLoading(false);
@@ -116,6 +116,21 @@ export default function Page() {
           7. novembrī plkst. 11.00 · tiešraide
         </p>
       </header>
+
+      {/* ---------- ВИДЕОБЛОК ---------- */}
+      <div className="mb-8">
+        <iframe
+          width="1236"
+          height="695"
+          src="https://www.youtube.com/embed/U6M570DqPpM"
+          title='Rudens konference "Vide. Skola. Kopiena."'
+          frameBorder="0"
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+          referrerPolicy="strict-origin-when-cross-origin"
+          allowFullScreen
+          className="w-full rounded-2xl border border-slate-200"
+        />
+      </div>
 
       <div className="grid md:grid-cols-5 gap-8">
         {/* ---------- FORM ---------- */}
@@ -207,9 +222,7 @@ export default function Page() {
 
               {/* About */}
               <div>
-                <label className="block text-sm mb-1">
-                  Kā uzzinājāt par konferenci? *
-                </label>
+                <label className="block text-sm mb-1">Kā uzzinājāt par konferenci? *</label>
                 <div className="space-y-2">
                   {aboutOptions.map((opt) => (
                     <label key={opt.value} className="flex items-start gap-3 text-sm">
@@ -256,9 +269,7 @@ export default function Page() {
               {/* Consent */}
               <label className="flex items-start gap-3 text-sm select-none">
                 <input type="checkbox" name="consent" required className="mt-1" />
-                <span>
-                  Piekrītu, ka mani dati tiek izmantoti tikai konferences organizēšanai.
-                </span>
+                <span>Piekrītu, ka mani dati tiek izmantoti tikai konferences organizēšanai.</span>
               </label>
 
               <button
