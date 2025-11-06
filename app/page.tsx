@@ -117,19 +117,19 @@ export default function Page() {
         </p>
       </header>
 
-      {/* ---------- ВИДЕОБЛОК ---------- */}
-      <div className="mb-8">
-        <iframe
-          width="1236"
-          height="695"
-          src="https://www.youtube.com/embed/U6M570DqPpM"
-          title='Rudens konference "Vide. Skola. Kopiena."'
-          frameBorder="0"
-          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-          referrerPolicy="strict-origin-when-cross-origin"
-          allowFullScreen
-          className="w-full rounded-2xl border border-slate-200"
-        />
+      {/* ---------- АДАПТИВНОЕ ВИДЕО (по центру, без обрезки) ---------- */}
+      <div className="mb-8 flex justify-center">
+        <div className="w-full max-w-5xl aspect-video overflow-hidden rounded-2xl border border-slate-200 bg-black">
+          <iframe
+            src="https://www.youtube.com/embed/U6M570DqPpM"
+            title='Rudens konference "Vide. Skola. Kopiena."'
+            frameBorder="0"
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+            referrerPolicy="strict-origin-when-cross-origin"
+            allowFullScreen
+            className="w-full h-full object-contain"
+          />
+        </div>
       </div>
 
       <div className="grid md:grid-cols-5 gap-8">
@@ -290,7 +290,7 @@ export default function Page() {
             <p className="text-slate-700 whitespace-pre-line">
               Aicinām piedalīties projekta “Skola – kopienā” rudens konferencē “Vide. Skola. Kopiena.”,
               kas notiks 7. novembrī plkst. 11.00 tiešraidē. Konferences laikā runāsim par skolu un kopienu
-              sadarbības stiprināšanu, skolēnu un pedagogu labsajūtu, iekļaujošu vidi, kā arī par skolēnu
+              sadarbības stiprināšanu, skolēnu un pedagogu labsajūtu, iekļaujošu vidi, kā arī par skolēну
               kavējumu problemātiku Latvijā, iespējamiem risinājumiem un gūto pieredzi.
             </p>
 
